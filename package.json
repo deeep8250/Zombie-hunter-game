@@ -1,0 +1,5 @@
+{
+  "devDependencies": {
+    "@babylonjs/inspector": "^8.8.0"
+  }
+}

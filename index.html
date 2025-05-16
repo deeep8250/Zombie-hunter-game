@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Babylon.js FPS</title>
+
+  <!-- =======================
+       ✅ Styles
+  =========================== -->
+  <style>
+    html, body { margin: 0; overflow: hidden; width: 100%; height: 100%; }
+    canvas { width: 100%; height: 100%; display: block; }
+  </style>
+
+  <!-- =======================
+       ✅ Babylon.js Scripts
+  =========================== -->
+
+  <!-- Core Babylon.js -->
+  <script src="https://cdn.babylonjs.com/babylon.js"></script>
+
+  <!-- (Optional) Loaders for .glb/.gltf -->
+  <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+
+  <!-- (Optional) Material library (e.g., Grid) -->
+  <script src="https://cdn.babylonjs.com/materialsLibrary/babylon.gridMaterial.min.js"></script>
+
+  <!-- (Optional) Debugging/Inspector -->
+  <script src="https://cdn.babylonjs.com/inspector/babylon.inspector.bundle.js"></script>
+</head>
+
+<body>
+  <!-- =======================
+       ✅ Canvas
+  =========================== -->
+  <canvas id="renderCanvas"></canvas>
+
+  <!-- =======================
+       ✅ Main Script
+  =========================== -->
+  <script>
+    // Unlock audio on first pointer interaction
+    let audioUnlocked = false;
+    document.addEventListener("pointerdown", () => {
+      if (!audioUnlocked) {
+        audioUnlocked = true;
+        const unlockSound = new BABYLON.Sound("unlock", null, null, null, { autoplay: true, volume: 0 });
+        setTimeout(() => unlockSound.dispose(), 100);
+        const ctx = BABYLON.Engine.audioEngine?.audioContext;
+        if (ctx && ctx.state === "suspended") {
+          ctx.resume().then(() => console.log("🔊 Babylon.js AudioContext resumed (pointerdown)"));
+        }
+      }
+    }, { once: true });
+
+    // =======================
+    // ✅ Engine & Scene Setup
+    // =======================
+    const canvas = document.getElementById("renderCanvas");
+    const engine = new BABYLON.Engine(canvas, true);
+
+    const createScene = async () => {
+      const scene = new BABYLON.Scene(engine);
+      scene.clearColor = new BABYLON.Color3(0.7, 0.7, 0.75);
+      scene.gravity = new BABYLON.Vector3(0, -0.1, 0);
+      scene.collisionsEnabled = true;
+
+      // =======================
+      // ✅ Camera Setup
+      // =======================
+      const camera = new BABYLON.UniversalCamera("FPCamera", new BABYLON.Vector3(0, 2, -10), scene);
+      camera.attachControl(canvas, true);
+      camera.applyGravity = true;
+      camera.ellipsoid = new BABYLON.Vector3(1, 1, 1);
+      camera.checkCollisions = true;
+      camera.speed = 0.3;
+      camera.keysUp.push(87); camera.keysDown.push(83);
+      camera.keysLeft.push(65); camera.keysRight.push(68);
+
+      canvas.addEventListener("click", () => {
+        canvas.requestPointerLock();
+        const ctx = BABYLON.Engine.audioEngine?.audioContext;
+        if (ctx && ctx.state === "suspended") {
+          ctx.resume().then(() => console.log("🔊 Audio context resumed"));
+        }
+      });
+
+      // =======================
+      // ✅ Lighting
+      // =======================
+      new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+
+      // =======================
+      // ✅ Ground
+      // =======================
+      const ground = BABYLON.MeshBuilder.CreateGround("ground", { height: 200, width: 200 }, scene);
+      ground.checkCollisions = true;
+      const groundMaterial = new BABYLON.StandardMaterial("groundMat", scene);
+      const texture = new BABYLON.Texture("models/ground.jpg", scene);
+      texture.uScale = 20;
+      texture.vScale = 20;
+      groundMaterial.diffuseTexture = texture;
+      ground.material = groundMaterial;
+
+      // =======================
+      // ✅ Buildings
+      // =======================
+      const buildings = await BABYLON.SceneLoader.ImportMeshAsync("", "models/", "ground.glb", scene);
+      buildings.meshes.forEach(mesh => mesh.checkCollisions = true);
+
+      // =======================
+      // ✅ Gun Setup
+      // =======================
+      const result = await BABYLON.SceneLoader.ImportMeshAsync("", "models/", "gun.glb", scene);
+      const gun = result.meshes[0];
+      gun.parent = camera;
+      gun.position = new BABYLON.Vector3(0.5, -0.90, 1.4);
+      gun.scaling = new BABYLON.Vector3(0.8, 0.8, 0.8);
+      gun.rotation = new BABYLON.Vector3(0, Math.PI/2, 0);
+
+      // =======================
+      // ✅ Muzzle Flash
+      // =======================
+      const suppressor = result.meshes.find(m => m.name.includes("Suppressor"));
+      const muzzleResult = await BABYLON.SceneLoader.ImportMeshAsync("", "models/", "Muzleflash.glb", scene);
+      const muzzleMesh = muzzleResult.meshes[0];
+      muzzleMesh.parent = suppressor;
+      muzzleMesh.position = new BABYLON.Vector3(-110, 65, 10);
+      muzzleMesh.rotation = new BABYLON.Vector3(0, Math.PI/2, 0);
+      muzzleMesh.scaling = new BABYLON.Vector3(0.4, 0.4, 0.4);
+      muzzleMesh.setEnabled(false);
+
+      // =======================
+      // ✅ Gun Sound
+      // =======================
+      let gunSoundReady = false;
+      const gunSound = new Audio("audio/1.mp3");
+      gunSound.loop = false;
+      gunSound.addEventListener("canplaythrough", () => {
+        gunSoundReady = true;
+        console.log("🔫 Gun sound loaded and ready");
+      });
+
+      // =======================
+      // ✅ Recoil Animation
+      // =======================
+      function playRecoilAnimation() {
+        const anim = new BABYLON.Animation("recoil", "position.z", 60,
+          BABYLON.Animation.ANIMATIONTYPE_FLOAT,
+          BABYLON.Animation.ANIMATIONLOOPMODE_CYCLE);
+
+        const keys = [
+          { frame: 0, value: gun.position.z },
+          { frame: 2, value: gun.position.z - 0.2 },
+          { frame: 5, value: gun.position.z }
+        ];
+
+        anim.setKeys(keys);
+        gun.animations = [anim];
+        scene.beginAnimation(gun, 0, 5, false);
+      }
+
+      // =======================
+      // ✅ Firing Logic
+      // =======================
+      let firing = false;
+      let fireInterval = null;
+
+      window.addEventListener("mousedown", (e) => {
+        if (e.button === 0 && !firing && gunSoundReady) {
+          firing = true;
+          fireInterval = setInterval(() => {
+            muzzleMesh.setEnabled(true);
+            setTimeout(() => muzzleMesh.setEnabled(false), 50);
+
+            playRecoilAnimation();
+
+            gunSound.pause();
+            gunSound.currentTime = 0;
+            gunSound.play();
+          }, 150);
+        }
+      });
+
+      window.addEventListener("mouseup", (e) => {
+        if (e.button === 0) {
+          firing = false;
+          clearInterval(fireInterval);
+          muzzleMesh.setEnabled(false);
+        }
+      });
+
+      return scene;
+    };
+
+    // =======================
+    // ✅ Run Scene
+    // =======================
+    createScene().then(scene => {
+      engine.runRenderLoop(() => scene.render());
+     
+    });
+
+    window.addEventListener("resize", () => engine.resize());
+
+  </script>
+</body>
+</html>
