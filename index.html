@@ -27,16 +27,18 @@
 
   <!-- (Optional) Debugging/Inspector -->
   <script src="https://cdn.babylonjs.com/inspector/babylon.inspector.bundle.js"></script>
+  <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
+
 </head>
 
 <body>
   <!-- =======================
-       ✅ Canvas
+        Canvas
   =========================== -->
   <canvas id="renderCanvas"></canvas>
 
   <!-- =======================
-       ✅ Main Script
+        Main Script
   =========================== -->
   <script>
     // Unlock audio on first pointer interaction
@@ -54,7 +56,7 @@
     }, { once: true });
 
     // =======================
-    // ✅ Engine & Scene Setup
+    //  Engine & Scene Setup
     // =======================
     const canvas = document.getElementById("renderCanvas");
     const engine = new BABYLON.Engine(canvas, true);
@@ -66,7 +68,7 @@
       scene.collisionsEnabled = true;
 
       // =======================
-      // ✅ Camera Setup
+      //  Camera Setup
       // =======================
       const camera = new BABYLON.UniversalCamera("FPCamera", new BABYLON.Vector3(0, 2, -10), scene);
       camera.attachControl(canvas, true);
@@ -86,12 +88,12 @@
       });
 
       // =======================
-      // ✅ Lighting
+      //  Lighting
       // =======================
       new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
 
       // =======================
-      // ✅ Ground
+      //  Ground
       // =======================
       const ground = BABYLON.MeshBuilder.CreateGround("ground", { height: 200, width: 200 }, scene);
       ground.checkCollisions = true;
@@ -103,13 +105,13 @@
       ground.material = groundMaterial;
 
       // =======================
-      // ✅ Buildings
+      //  Buildings
       // =======================
       const buildings = await BABYLON.SceneLoader.ImportMeshAsync("", "models/", "ground.glb", scene);
       buildings.meshes.forEach(mesh => mesh.checkCollisions = true);
 
       // =======================
-      // ✅ Gun Setup
+      //  Gun Setup
       // =======================
       const result = await BABYLON.SceneLoader.ImportMeshAsync("", "models/", "gun.glb", scene);
       const gun = result.meshes[0];
@@ -119,7 +121,7 @@
       gun.rotation = new BABYLON.Vector3(0, Math.PI/2, 0);
 
       // =======================
-      // ✅ Muzzle Flash
+      //  Muzzle Flash
       // =======================
       const suppressor = result.meshes.find(m => m.name.includes("Suppressor"));
       const muzzleResult = await BABYLON.SceneLoader.ImportMeshAsync("", "models/", "Muzleflash.glb", scene);
@@ -128,10 +130,13 @@
       muzzleMesh.position = new BABYLON.Vector3(-110, 65, 10);
       muzzleMesh.rotation = new BABYLON.Vector3(0, Math.PI/2, 0);
       muzzleMesh.scaling = new BABYLON.Vector3(0.4, 0.4, 0.4);
+
+
+      
       muzzleMesh.setEnabled(false);
 
       // =======================
-      // ✅ Gun Sound
+      //  Gun Sound
       // =======================
       let gunSoundReady = false;
       const gunSound = new Audio("audio/1.mp3");
@@ -141,8 +146,126 @@
         console.log("🔫 Gun sound loaded and ready");
       });
 
+
+
+
+// =======================
+// HP bar
+// =======================
+       
+const playerUI = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI");
+
+//  Health Bar Background (Outer)
+const hpContainer = new BABYLON.GUI.Rectangle("hpContainer");
+hpContainer.width = "30%"; // 30% of screen width
+hpContainer.height = "30px";
+hpContainer.cornerRadius = 15;
+hpContainer.thickness = 2;
+hpContainer.color = "white";
+hpContainer.background = "#222"; // Dark background
+hpContainer.top = "20px";
+hpContainer.left = "20px";
+hpContainer.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_CENTER;
+hpContainer.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
+hpContainer.top = "-20px"; // Adjust position
+playerUI.addControl(hpContainer);
+
+// Actual HP (Inner Red Bar)
+const hpBar = new BABYLON.GUI.Rectangle("hpBar");
+hpBar.height = "100%";
+hpBar.width = "100%"; // Will reduce this for damage
+hpBar.cornerRadius = 15;
+hpBar.thickness = 0;
+hpBar.background = "#00FF88"; // Stylish green
+hpBar.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+hpContainer.addControl(hpBar);
+
+
+//  Optional: Drop shadow effect
+hpBar.shadowBlur = 10;
+hpBar.shadowColor = "black";
+
+//  Health logic
+let playerHP = 100;
+const maxHP = 100;
+
+function updateHPBar(hp) {
+  playerHP = Math.max(0, Math.min(hp, maxHP));
+  const percent = playerHP / maxHP;
+  hpBar.width = `${percent * 100}%`;
+
+  // Gradient color based on health
+  if (percent > 0.6) hpBar.background = "#00FF88"; // green
+  else if (percent > 0.3) hpBar.background = "#FFA500"; // orange
+  else hpBar.background = "#FF4444"; // red
+
+  if (playerHP <= 0) {
+     camera.inputs.attached.keyboard.detachControl(canvas);  // Disable player controls
+      camera.inputs.attached.mouse.detachControl(canvas);
+  
+  //Outer layer of game over screen 
+  const gameOvertexture = new BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("gameOverUI"); 
+  const gameOverText = new BABYLON.GUI.Rectangle();
+  gameOverText.width = "100%";
+  gameOverText.height = "30%";
+  gameOverText.color = "grey";
+  gameOverText.background = "grey";
+  gameOverText.alpha = 0.1;
+  gameOvertexture.addControl(gameOverText)
+
+
+  //inner text of game over screen
+  const gameOverText2 = new BABYLON.GUI.TextBlock();
+  gameOverText2.text = "Game Over";
+  gameOverText2.color = "red";
+  gameOverText2.thickness = 7;
+   gameOverText2.fontSize = 100;
+   gameOverText.addControl(gameOverText2);  
+}
+}
+
+//  Simulate damage (press "H")
+window.addEventListener("keydown", (e) => {
+  if (e.key === "h") {
+    updateHPBar(playerHP - 10);
+  }
+});
+
+
+   // =======================
+   // Corss Hair
+   // =======================
+     
+   const CorssHairTexture = new BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("crosshair");
+   const crosshairHorizontal = new BABYLON.GUI.Rectangle(); 
+   crosshairHorizontal.width = "4%";
+   crosshairHorizontal.height = "0.40%";
+   crosshairHorizontal.background = "purple";
+   crosshairHorizontal.color = "purple";
+   crosshairHorizontal.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_CENTER;
+   crosshairHorizontal.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_CENTER;
+   CorssHairTexture.addControl(crosshairHorizontal);
+
+   const CorssHairTexture2 = new BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("crosshair");
+   const crosshairVerticle = new BABYLON.GUI.Rectangle(); 
+   crosshairVerticle.width = "0.20%";
+   crosshairVerticle.height = "5%";
+   crosshairVerticle.background = "purple";
+   crosshairVerticle.color = "purple";
+   crosshairVerticle.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_CENTER;
+   crosshairVerticle.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_CENTER;
+   CorssHairTexture.addControl(crosshairVerticle);
+
+
+
+
+
+
+
+
+
       // =======================
-      // ✅ Recoil Animation
+      // Recoil Animation
       // =======================
       function playRecoilAnimation() {
         const anim = new BABYLON.Animation("recoil", "position.z", 60,
@@ -161,13 +284,13 @@
       }
 
       // =======================
-      // ✅ Firing Logic
+      //  Firing Logic
       // =======================
       let firing = false;
       let fireInterval = null;
 
       window.addEventListener("mousedown", (e) => {
-        if (e.button === 0 && !firing && gunSoundReady) {
+        if (e.button === 0 && !firing && gunSoundReady && playerHP > 0) {
           firing = true;
           fireInterval = setInterval(() => {
             muzzleMesh.setEnabled(true);
@@ -194,7 +317,7 @@
     };
 
     // =======================
-    // ✅ Run Scene
+    //  Run Scene
     // =======================
     createScene().then(scene => {
       engine.runRenderLoop(() => scene.render());
