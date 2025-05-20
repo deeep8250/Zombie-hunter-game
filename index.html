@@ -28,7 +28,7 @@
   <!-- (Optional) Debugging/Inspector -->
   <script src="https://cdn.babylonjs.com/inspector/babylon.inspector.bundle.js"></script>
   <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
-
+  <script src="enemy.js"></script>
 </head>
 
 <body>
@@ -40,6 +40,7 @@
   <!-- =======================
         Main Script
   =========================== -->
+  
   <script>
     // Unlock audio on first pointer interaction
     let audioUnlocked = false;
@@ -60,7 +61,7 @@
     // =======================
     const canvas = document.getElementById("renderCanvas");
     const engine = new BABYLON.Engine(canvas, true);
-
+  let copyEnemyMesh;
     const createScene = async () => {
       const scene = new BABYLON.Scene(engine);
       scene.clearColor = new BABYLON.Color3(0.7, 0.7, 0.75);
@@ -87,6 +88,9 @@
         }
       });
 
+      console.log("camera position : ", camera.position);
+      
+
       // =======================
       //  Lighting
       // =======================
@@ -103,6 +107,63 @@
       texture.vScale = 20;
       groundMaterial.diffuseTexture = texture;
       ground.material = groundMaterial;
+
+
+      // =======================
+//  Boundary Pillars (Wall Around Ground)
+// =======================
+
+const wallHeight = 5;
+const wallThickness = 1;
+const groundSize = 200; // assuming ground is 200x200
+
+const wallMaterial = new BABYLON.StandardMaterial("wallMat", scene);
+wallMaterial.diffuseColor = new BABYLON.Color3(0.5, 0.5, 0.5); // grey color
+
+// Create 4 walls (box meshes) around the ground edges
+
+// Front wall (along X axis)
+const frontWall = BABYLON.MeshBuilder.CreateBox("frontWall", {
+  width: groundSize,
+  height: wallHeight,
+  depth: wallThickness,
+}, scene);
+frontWall.position = new BABYLON.Vector3(0, wallHeight / 2, groundSize / 2);
+frontWall.material = wallMaterial;
+frontWall.checkCollisions = true;
+
+// Back wall
+const backWall = BABYLON.MeshBuilder.CreateBox("backWall", {
+  width: groundSize,
+  height: wallHeight,
+  depth: wallThickness,
+}, scene);
+backWall.position = new BABYLON.Vector3(0, wallHeight / 2, -groundSize / 2);
+backWall.material = wallMaterial;
+backWall.checkCollisions = true;
+// Left wall (along Z axis)
+const leftWall = BABYLON.MeshBuilder.CreateBox("leftWall", {
+  width: wallThickness,
+  height: wallHeight,
+  depth: groundSize,
+}, scene);
+leftWall.position = new BABYLON.Vector3(-groundSize / 2, wallHeight / 2, 0);
+leftWall.material = wallMaterial;
+leftWall.checkCollisions = true;
+
+// Right wall
+const rightWall = BABYLON.MeshBuilder.CreateBox("rightWall", {
+  width: wallThickness,
+  height: wallHeight,
+  depth: groundSize,
+}, scene);
+rightWall.position = new BABYLON.Vector3(groundSize / 2, wallHeight / 2, 0);
+rightWall.material = wallMaterial;
+rightWall.checkCollisions = true;
+
+
+
+
 
       // =======================
       //  Buildings
@@ -155,7 +216,7 @@
        
 const playerUI = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI");
 
-//  Health Bar Background (Outer)
+// player Health Bar Background (Outer)
 const hpContainer = new BABYLON.GUI.Rectangle("hpContainer");
 hpContainer.width = "30%"; // 30% of screen width
 hpContainer.height = "30px";
@@ -170,7 +231,7 @@ hpContainer.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_BOTTOM;
 hpContainer.top = "-20px"; // Adjust position
 playerUI.addControl(hpContainer);
 
-// Actual HP (Inner Red Bar)
+// player Actual HP (Inner Red Bar)
 const hpBar = new BABYLON.GUI.Rectangle("hpBar");
 hpBar.height = "100%";
 hpBar.width = "100%"; // Will reduce this for damage
@@ -185,7 +246,7 @@ hpContainer.addControl(hpBar);
 hpBar.shadowBlur = 10;
 hpBar.shadowColor = "black";
 
-//  Health logic
+//  player Health logic
 let playerHP = 100;
 const maxHP = 100;
 
@@ -194,27 +255,26 @@ function updateHPBar(hp) {
   const percent = playerHP / maxHP;
   hpBar.width = `${percent * 100}%`;
 
-  // Gradient color based on health
+  //player Gradient color based on health
   if (percent > 0.6) hpBar.background = "#00FF88"; // green
   else if (percent > 0.3) hpBar.background = "#FFA500"; // orange
   else hpBar.background = "#FF4444"; // red
 
-  if (playerHP <= 0) {
+  if (playerHP == 0) {
      camera.inputs.attached.keyboard.detachControl(canvas);  // Disable player controls
       camera.inputs.attached.mouse.detachControl(canvas);
   
-  //Outer layer of game over screen 
+  //player Outer layer of game over screen 
   const gameOvertexture = new BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("gameOverUI"); 
   const gameOverText = new BABYLON.GUI.Rectangle();
   gameOverText.width = "100%";
   gameOverText.height = "30%";
   gameOverText.color = "grey";
   gameOverText.background = "grey";
-  gameOverText.alpha = 0.1;
   gameOvertexture.addControl(gameOverText)
 
 
-  //inner text of game over screen
+  //lpayer inner text of game over screen
   const gameOverText2 = new BABYLON.GUI.TextBlock();
   gameOverText2.text = "Game Over";
   gameOverText2.color = "red";
@@ -224,12 +284,82 @@ function updateHPBar(hp) {
 }
 }
 
-//  Simulate damage (press "H")
-window.addEventListener("keydown", (e) => {
-  if (e.key === "h") {
-    updateHPBar(playerHP - 10);
+
+
+
+//Enemy hp
+const enemyHPContainer = new BABYLON.GUI.Rectangle("enemyHPContainer");
+enemyHPContainer.width = "30%"; // 30% of screen width
+enemyHPContainer.height = "30px";
+enemyHPContainer.cornerRadius = 15;
+enemyHPContainer.thickness = 2;
+enemyHPContainer.color = "white";
+enemyHPContainer.background = "#222"; // Dark background  
+enemyHPContainer.top = "20px";
+enemyHPContainer.left = "20px";
+enemyHPContainer.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_CENTER;
+enemyHPContainer.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_TOP;
+enemyHPContainer.top = "20px"; // Adjust position
+enemyHPContainer.left = "20px"; // Adjust position
+playerUI.addControl(enemyHPContainer);
+// Enemy Actual HP (Inner Red Bar)
+const enemyHPBar = new BABYLON.GUI.Rectangle("enemyHPBar");
+enemyHPBar.height = "100%";
+enemyHPBar.width = "100%"; // Will reduce this for damage
+enemyHPBar.cornerRadius = 15;
+enemyHPBar.thickness = 0;
+   enemyHPBar.background = "#FF4444"; // red
+enemyHPBar.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
+
+enemyHPContainer.addControl(enemyHPBar);
+// Optional: Drop shadow effect
+enemyHPBar.shadowBlur = 10;
+enemyHPBar.shadowColor = "black";
+// Enemy Health logic
+let enemyHP = 100;
+const maxEnemyHP = 100;
+function updateEnemyHPBar(hp) {
+  enemyHP = Math.max(0, Math.min(hp, maxEnemyHP));
+  const percent = enemyHP / maxEnemyHP;
+  enemyHPBar.width = `${percent * 100}%`;
+  if (enemyHP == 0) {
+    enemyHPContainer.dispose(); // Remove enemy HP bar
+    enemyMesh.dispose(); // Remove enemy mesh
+    console.log("Enemy defeated!");
+    // Optionally, you can add a message or effect here
+
+     //player Outer layer of game over screen 
+  const gameWinTexture = new BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("gameOverUI"); 
+  const gameWinText = new BABYLON.GUI.Rectangle();
+  gameWinText.width = "100%";
+  gameWinText.height = "30%";
+  gameWinText.color = "grey";
+  gameWinText.background = "grey";
+  gameWinTexture.addControl(gameWinText)
+
+
+  //lpayer inner text of game over screen
+  const gameOverText2 = new BABYLON.GUI.TextBlock();
+  gameOverText2.text = "You Win";
+  gameOverText2.color = "green";
+  gameOverText2.thickness = 7;
+   gameOverText2.fontSize = 100;
+   gameWinText.addControl(gameOverText2);  
+
+
+
+
+
   }
-});
+  if (playerHP == 0) {
+    enemyHPContainer.dispose(); // Remove enemy HP bar
+    enemyMesh.dispose(); // Remove enemy mesh
+    console.log("Player defeated!");
+    // Optionally, you can add a message or effect here 
+  }
+}
+
+
 
 
    // =======================
@@ -256,6 +386,65 @@ window.addEventListener("keydown", (e) => {
    crosshairVerticle.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_CENTER;
    CorssHairTexture.addControl(crosshairVerticle);
 
+
+
+//enemy call
+
+
+
+
+
+
+      const Enemyresult = await BABYLON.SceneLoader.ImportMeshAsync("", "models/","enemy1.glb", scene);
+    const enemyMesh = Enemyresult.meshes[0]; // Get the main mesh
+    enemyMesh.scaling = new BABYLON.Vector3(3, 3, 3); // Scale the enemy
+    enemyMesh.applyGravity = true;
+    enemyMesh.position = new BABYLON.Vector3(50, 0, 10); // Set initial position
+     enemyMesh.position.y = 0; // Adjust ground position
+
+ // For your enemy mesh:
+enemyMesh.checkCollisions = true;
+enemyMesh.ellipsoid = new BABYLON.Vector3(1, 1, 1);  // Adjust size of collider for enemy
+enemyMesh.ellipsoidOffset = new BABYLON.Vector3(0, 1, 0);  // Offset if needed
+
+
+
+
+
+    let takeDamage = true; // Flag to control damage logic
+    
+    scene.onBeforeRenderObservable.add(() => {
+enemyMesh.position.y = 0; // Keep enemy on the ground
+      
+  const direction = camera.position.subtract(enemyMesh.position);
+
+      if (!enemyMesh || !camera) return;
+
+  // Vector from enemy to player
+ direction.y = 0; // Ignore vertical distance
+  if (direction.length() > 3) {
+  
+    direction.normalize();
+    const speed = 0.1; // Adjust speed as needed
+    const step = new BABYLON.Vector3();
+direction.scaleToRef(speed, step);
+enemyMesh.moveWithCollisions(step);
+
+
+    // Optional: rotate enemy to face the player
+    enemyMesh.lookAt(camera.position);
+  }else if (direction.length() <= 3 && takeDamage && playerHP > 0) {
+    // Only apply damage once per cooldown
+    playerHP -= 10;
+    updateHPBar(playerHP);
+
+    takeDamage = false; // Cooldown starts
+    setTimeout(() => {
+      takeDamage = true;
+    }, 1000); // 1 second cooldown
+  }
+
+});
 
 
 
@@ -289,21 +478,86 @@ window.addEventListener("keydown", (e) => {
       let firing = false;
       let fireInterval = null;
 
-      window.addEventListener("mousedown", (e) => {
-        if (e.button === 0 && !firing && gunSoundReady && playerHP > 0) {
-          firing = true;
-          fireInterval = setInterval(() => {
-            muzzleMesh.setEnabled(true);
-            setTimeout(() => muzzleMesh.setEnabled(false), 50);
 
-            playRecoilAnimation();
 
-            gunSound.pause();
-            gunSound.currentTime = 0;
-            gunSound.play();
-          }, 150);
+
+window.addEventListener("mousedown", (e) => {
+  if (e.button === 0 && !firing && gunSoundReady && playerHP > 0) {
+    firing = true;
+    fireInterval = setInterval(() => {
+      // Show muzzle flash
+      muzzleMesh.setEnabled(true);
+      setTimeout(() => muzzleMesh.setEnabled(false), 50);
+
+      // Recoil animation
+      playRecoilAnimation();
+
+      // Gun sound
+      gunSound.pause();
+      gunSound.currentTime = 0;
+      gunSound.play();
+
+      // Create bullet
+      const bullet = BABYLON.MeshBuilder.CreateSphere("bullet", { diameter: 0.1 }, scene);
+      bullet.isVisible = false;
+      bullet.material = new BABYLON.StandardMaterial("bulletMat", scene);
+      bullet.material.emissiveColor = new BABYLON.Color3(0, 0, 0); // Glowing orange
+      bullet.checkCollisions = true;
+
+      // Starting position: from camera
+      bullet.position = camera.position.clone();
+      bullet.position.y += 1; // Adjust height
+
+      // Direction and speed
+      const forward = camera.getForwardRay().direction.normalize();
+      const speed = 1;
+
+      const bulletInterval = setInterval(() => {
+        bullet.position.addInPlace(forward.scale(speed)); // Move bullet
+
+        if (enemyMesh && !enemyMesh.isDisposed()) {
+          const dist = BABYLON.Vector3.Distance(bullet.position, enemyMesh.position);
+
+          // DEBUG: Print current distance
+          // console.log("Distance to enemy:", dist.toFixed(2));
+
+          if (dist < 3.0) { // Tune hit radius here
+            console.log("💥 Bullet hit enemy!");
+            console.log("Bullet position:", bullet.position.toString());
+            console.log("Enemy position:", enemyMesh.position.toString());
+
+            enemyHP -= 2; // Example damage
+            updateEnemyHPBar(enemyHP);
+          
+            console.log("Bullet position:", bullet.position.toString());
+            console.log("Enemy position:", enemyMesh.position.toString());
+
+            // Example logic - add your enemy HP logic here
+            updateHPBar(playerHP); 
+            
+            bullet.dispose();
+            clearInterval(bulletInterval);
+          }
         }
-      });
+      }, 16); // ~60fps
+
+      // Cleanup if no hit
+      setTimeout(() => {
+        if (bullet && !bullet.isDisposed()) {
+          bullet.dispose();
+          clearInterval(bulletInterval);
+        }
+      }, 2000); // Bullet lifetime
+
+    }, 150); // Fire rate
+  }
+});
+
+
+
+
+
+
 
       window.addEventListener("mouseup", (e) => {
         if (e.button === 0) {
@@ -313,6 +567,20 @@ window.addEventListener("keydown", (e) => {
         }
       });
 
+
+
+scene.onBeforeRenderObservable.add(() => {
+  // Log player (camera) position
+  const playerPos = camera.position;
+  // console.log("🎮 Player Position:", playerPos);
+
+  // Log enemy position (if it exists)
+  if (enemyMesh) {
+    const enemyPos = enemyMesh.position;
+    // console.log("👾 Enemy Position:", enemyPos);
+  }
+});
+
       return scene;
     };
 
@@ -320,6 +588,8 @@ window.addEventListener("keydown", (e) => {
     //  Run Scene
     // =======================
     createScene().then(scene => {
+     
+      
       engine.runRenderLoop(() => scene.render());
      
     });
