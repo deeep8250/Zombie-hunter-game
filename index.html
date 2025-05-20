@@ -4,20 +4,31 @@
   <meta charset="UTF-8">
   <title>Babylon.js FPS</title>
 
-
+  <!-- =======================
+       ✅ Styles
+  =========================== -->
   <style>
     html, body { margin: 0; overflow: hidden; width: 100%; height: 100%; }
     canvas { width: 100%; height: 100%; display: block; }
   </style>
 
+  <!-- =======================
+       ✅ Babylon.js Scripts
+  =========================== -->
 
-
+  <!-- Core Babylon.js -->
   <script src="https://cdn.babylonjs.com/babylon.js"></script>
+
+  <!-- (Optional) Loaders for .glb/.gltf -->
   <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+
+  <!-- (Optional) Material library (e.g., Grid) -->
   <script src="https://cdn.babylonjs.com/materialsLibrary/babylon.gridMaterial.min.js"></script>
+
+  <!-- (Optional) Debugging/Inspector -->
   <script src="https://cdn.babylonjs.com/inspector/babylon.inspector.bundle.js"></script>
   <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
-  <script src="enemy.js"></script>
+  
 </head>
 
 <body>
@@ -414,7 +425,7 @@ enemyMesh.position.y = 0; // Keep enemy on the ground
   if (direction.length() > 3) {
   
     direction.normalize();
-    const speed = 0.1; // Adjust speed as needed
+    const speed = 0.1; 
     const step = new BABYLON.Vector3();
 direction.scaleToRef(speed, step);
 enemyMesh.moveWithCollisions(step);
@@ -422,8 +433,10 @@ enemyMesh.moveWithCollisions(step);
 
     // Optional: rotate enemy to face the player
     enemyMesh.lookAt(camera.position);
-  }else if (direction.length() <= 3 && takeDamage && playerHP > 0) {
+  }else if (direction.length() <= 3 && takeDamage && playerHP > 0 && enemyHP > 0) {
     // Only apply damage once per cooldown
+    console.log("Enemy hit player!");
+    
     playerHP -= 10;
     updateHPBar(playerHP);
 
